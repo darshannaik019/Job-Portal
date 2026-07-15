@@ -19,7 +19,8 @@ const experienceSchema = new mongoose.Schema({
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, index: true },
-  password: { type: String, required: true },
+  clerkId: { type: String, unique: true, sparse: true },
+  password: { type: String },
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   phone: { type: String },
   skills: [{ type: String }],
@@ -33,14 +34,15 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    next();
+  if (!this.isModified('password') || !this.password) {
+    return next();
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

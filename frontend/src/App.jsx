@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
+import { useAuth } from '@clerk/clerk-react';
 import { loadUser, localLogout } from './redux/slices/authSlice.js';
 
 // Common Components
@@ -23,23 +24,17 @@ import SettingsPage from './pages/SettingsPage.jsx';
 
 function App() {
   const dispatch = useDispatch();
-  const { token } = useSelector((state) => state.auth);
+  const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (token) {
-      dispatch(loadUser());
+    if (isLoaded) {
+      if (isSignedIn) {
+        dispatch(loadUser());
+      } else {
+        dispatch(localLogout());
+      }
     }
-
-    // Capture token refresh failures from Axios interceptor
-    const handleLogout = () => {
-      dispatch(localLogout());
-    };
-
-    window.addEventListener('auth-logout', handleLogout);
-    return () => {
-      window.removeEventListener('auth-logout', handleLogout);
-    };
-  }, [dispatch, token]);
+  }, [dispatch, isLoaded, isSignedIn]);
 
   return (
     <Router>

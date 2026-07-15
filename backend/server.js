@@ -9,8 +9,9 @@ import connectDB from './config/db.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import logger from './utils/logger.js';
 
+import { clerkMiddleware } from '@clerk/express';
+
 // Route imports
-import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
@@ -48,8 +49,10 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
+// Global Clerk Middleware
+app.use(clerkMiddleware());
+
 // Mount routers
-app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);

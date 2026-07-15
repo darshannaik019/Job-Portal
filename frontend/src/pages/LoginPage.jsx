@@ -1,38 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { loginUser, clearErrors } from '../redux/slices/authSlice.js';
+import { useSelector } from 'react-redux';
+import { SignIn } from '@clerk/clerk-react';
 import useToast from '../hooks/useToast.js';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  
-  const dispatch = useDispatch();
   const navigate = useNavigate();
   const addToast = useToast();
-
-  const { isAuthenticated, error, loading, user } = useSelector((state) => state.auth);
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   useEffect(() => {
     if (isAuthenticated && user) {
       addToast('Logged in successfully!', 'success');
       navigate(user.role === 'admin' ? '/admin/dashboard' : '/dashboard');
     }
-
-    if (error) {
-      addToast(error, 'error');
-      dispatch(clearErrors());
-    }
-  }, [isAuthenticated, error, user, navigate, dispatch, addToast]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      return addToast('Please enter all fields', 'warning');
-    }
-    dispatch(loginUser({ email, password }));
-  };
+  }, [isAuthenticated, user, navigate, addToast]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark:bg-primary-container p-6 transition-colors">
@@ -47,47 +29,22 @@ const LoginPage = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant dark:text-on-tertiary-container">
-              Email Address
-            </label>
-            <input
-              type="email"
-              placeholder="name@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-surface-container-low dark:bg-on-tertiary-fixed-variant border-none rounded-xl text-body-sm px-4 py-3 text-on-surface dark:text-white focus:ring-2 focus:ring-secondary/25"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant dark:text-on-tertiary-container">
-              Password
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-surface-container-low dark:bg-on-tertiary-fixed-variant border-none rounded-xl text-body-sm px-4 py-3 text-on-surface dark:text-white focus:ring-2 focus:ring-secondary/25"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-on-primary dark:bg-white dark:text-primary py-4 rounded-xl font-bold text-body-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="mt-8 text-center text-body-sm text-on-surface-variant dark:text-on-tertiary-container">
-          New to CareerPartner?{' '}
-          <Link to="/register" className="text-secondary dark:text-secondary-fixed-dim font-semibold hover:underline">
-            Create an account
-          </Link>
+        <div className="flex justify-center">
+          <SignIn 
+            routing="path" 
+            path="/login" 
+            signUpUrl="/register"
+            appearance={{
+              elements: {
+                card: "shadow-none border-0 p-0 m-0 w-full bg-transparent",
+                headerTitle: "hidden",
+                headerSubtitle: "hidden",
+                footerAction: "dark:text-white",
+                formButtonPrimary: "bg-primary dark:bg-white text-on-primary dark:text-primary hover:opacity-90 transition-opacity",
+                formFieldInput: "bg-surface-container-low dark:bg-on-tertiary-fixed-variant border-none rounded-xl text-body-sm px-4 py-3 text-on-surface dark:text-white",
+              }
+            }}
+          />
         </div>
       </div>
     </div>

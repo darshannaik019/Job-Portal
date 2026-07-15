@@ -1,17 +1,21 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { logoutUser } from '../../redux/slices/authSlice.js';
+import { useClerk } from '@clerk/clerk-react';
+import { localLogout } from '../../redux/slices/authSlice.js';
 
 const Sidebar = () => {
   const { user } = useSelector((state) => state.auth);
   const location = useLocation();
+  const { signOut } = useClerk();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    dispatch(logoutUser());
-    navigate('/');
+    signOut().then(() => {
+      dispatch(localLogout());
+      navigate('/');
+    });
   };
 
   const isActive = (path) => location.pathname === path;

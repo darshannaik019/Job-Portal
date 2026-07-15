@@ -1,31 +1,59 @@
 import User from '../models/User.js';
-import { verifyAccessToken } from '../utils/token.js';
+import { clerkClient } from '@clerk/express';
 import logger from '../utils/logger.js';
 
 export const protect = async (req, res, next) => {
-  let token;
+  try {
+    const { userId } = req.auth || {};
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = verifyAccessToken(token);
-
-      req.user = await User.findById(decoded.id).select('-password');
-      if (!req.user) {
-        return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
-      }
-      next();
-    } catch (error) {
-      logger.error(`Token authentication error: ${error.message}`);
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ success: false, message: 'Access token expired', code: 'TOKEN_EXPIRED' });
-      }
-      return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Not authorized, no token or invalid session' });
     }
-  } else {
-    return res.status(401).json({ success: false, message: 'Not authorized, no token provided' });
+
+    let user = await User.findOne({ clerkId: userId }).select('-password');
+
+    if (!user) {
+      // Sync on demand
+      try {
+        const clerkUser = await clerkClient.users.getUser(userId);
+        const email = clerkUser.emailAddresses[0]?.emailAddress;
+        const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'Clerk User';
+        const phone = clerkUser.phoneNumbers[0]?.phoneNumber || '';
+        
+        // Check X-Pending-Role header
+        const pendingRole = req.headers['x-pending-role'] || req.query.role;
+        const assignedRole = (pendingRole === 'admin' || pendingRole === 'user') ? pendingRole : 'user';
+
+        // Check if there is an existing user with the same email
+        user = await User.findOne({ email }).select('-password');
+        if (user) {
+          user.clerkId = userId;
+          if (!user.name) user.name = name;
+          if (!user.phone) user.phone = phone;
+          if (pendingRole) user.role = assignedRole;
+          await user.save();
+          logger.info(`Synced existing user ${email} with Clerk ID ${userId}`);
+        } else {
+          // Create new user in our DB
+          user = await User.create({
+            clerkId: userId,
+            name,
+            email,
+            role: assignedRole,
+            phone,
+          });
+          logger.info(`Created new user in MongoDB: ${email} with role ${assignedRole}`);
+        }
+      } catch (clerkError) {
+        logger.error(`Clerk user synchronization failed: ${clerkError.message}`);
+        return res.status(401).json({ success: false, message: 'Authorization sync failed' });
+      }
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    logger.error(`Authentication middleware error: ${error.message}`);
+    return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
   }
 };

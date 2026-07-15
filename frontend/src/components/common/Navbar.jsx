@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { logoutUser } from '../../redux/slices/authSlice.js';
+import { useClerk } from '@clerk/clerk-react';
+import { localLogout } from '../../redux/slices/authSlice.js';
 import { useTheme } from '../../context/ThemeContext.jsx';
 
 const Navbar = () => {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useClerk();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
-    dispatch(logoutUser());
-    navigate('/');
+    signOut().then(() => {
+      dispatch(localLogout());
+      navigate('/');
+    });
   };
 
   return (
