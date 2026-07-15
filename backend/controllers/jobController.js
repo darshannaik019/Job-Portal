@@ -17,11 +17,7 @@ export const getJobs = async (req, res, next) => {
     const query = {};
 
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-      ];
+      query.$text = { $search: search };
     }
 
     if (location) {

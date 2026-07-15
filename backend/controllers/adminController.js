@@ -81,10 +81,17 @@ export const getAdminJobs = async (req, res, next) => {
 
 export const getAdminApplications = async (req, res, next) => {
   try {
+    const { status } = req.query;
     const myJobs = await Job.find({ createdBy: req.user.id });
     const myJobIds = myJobs.map((job) => job._id);
 
-    const applications = await Application.find({ job: { $in: myJobIds } })
+    const query = { job: { $in: myJobIds } };
+    
+    if (status && ['pending', 'shortlisted', 'rejected', 'hired'].includes(status)) {
+      query.status = status;
+    }
+
+    const applications = await Application.find(query)
       .populate('user', 'name email phone profilePhoto skills')
       .populate('job', 'title location category');
 

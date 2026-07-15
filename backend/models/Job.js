@@ -23,5 +23,13 @@ const jobSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Text index for full-text search across title, description, and company
+jobSchema.index({ title: 'text', description: 'text', company: 'text' });
+
+// Compound and single indexes for optimized filtering
+jobSchema.index({ category: 1, jobType: 1 });
+jobSchema.index({ location: 1 });
+jobSchema.index({ experience: 1 });
+
 const Job = mongoose.model('Job', jobSchema);
 export default Job;
