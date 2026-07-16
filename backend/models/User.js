@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   education: [educationSchema],
   experience: [experienceSchema],
   resume: { type: String }, // Cloudinary URL
+  resumeText: { type: String }, // Parsed text from PDF
   profilePhoto: { type: String }, // Cloudinary URL
   savedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }],
 }, {

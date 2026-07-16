@@ -10,6 +10,8 @@ const applicationSchema = new mongoose.Schema({
     enum: ['pending', 'shortlisted', 'rejected', 'hired'], 
     default: 'pending' 
   },
+  aiScore: { type: Number },
+  aiFeedback: { type: String },
   appliedAt: { type: Date, default: Date.now },
 }, {
   timestamps: true

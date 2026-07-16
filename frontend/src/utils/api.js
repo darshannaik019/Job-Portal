@@ -7,16 +7,10 @@ const api = axios.create({
 
 // Request interceptor to attach access token
 api.interceptors.request.use(
-  async (config) => {
-    if (window.Clerk && window.Clerk.session) {
-      try {
-        const token = await window.Clerk.session.getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-      } catch (err) {
-        console.error('Error fetching Clerk token:', err);
-      }
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },

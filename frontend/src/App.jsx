@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { useAuth } from '@clerk/clerk-react';
 import { loadUser, localLogout } from './redux/slices/authSlice.js';
 
 // Common Components
@@ -21,20 +20,19 @@ import MyApplicationsPage from './pages/MyApplicationsPage.jsx';
 import AdminJobsPage from './pages/AdminJobsPage.jsx';
 import UserProfilePage from './pages/UserProfilePage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import ChatPage from './pages/ChatPage.jsx';
 
 function App() {
   const dispatch = useDispatch();
-  const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (isLoaded) {
-      if (isSignedIn) {
-        dispatch(loadUser());
-      } else {
-        dispatch(localLogout());
-      }
+    const token = localStorage.getItem('token');
+    if (token) {
+      dispatch(loadUser());
+    } else {
+      dispatch(localLogout());
     }
-  }, [dispatch, isLoaded, isSignedIn]);
+  }, [dispatch]);
 
   return (
     <Router>
@@ -112,6 +110,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
             </ProtectedRoute>
           }
         />

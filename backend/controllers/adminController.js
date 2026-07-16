@@ -91,7 +91,15 @@ export const getAdminApplications = async (req, res, next) => {
       query.status = status;
     }
 
-    const applications = await Application.find(query)
+    let apiQuery = Application.find(query);
+    
+    if (req.query.sort === 'aiScore') {
+      apiQuery = apiQuery.sort({ aiScore: -1 });
+    } else {
+      apiQuery = apiQuery.sort({ createdAt: -1 });
+    }
+
+    const applications = await apiQuery
       .populate('user', 'name email phone profilePhoto skills')
       .populate('job', 'title location category');
 

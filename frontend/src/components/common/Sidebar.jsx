@@ -1,21 +1,17 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { useClerk } from '@clerk/clerk-react';
-import { localLogout } from '../../redux/slices/authSlice.js';
+import { logout } from '../../redux/slices/authSlice.js';
 
 const Sidebar = () => {
   const { user } = useSelector((state) => state.auth);
   const location = useLocation();
-  const { signOut } = useClerk();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    signOut().then(() => {
-      dispatch(localLogout());
-      navigate('/');
-    });
+    dispatch(logout());
+    navigate('/');
   };
 
   const isActive = (path) => location.pathname === path;
@@ -23,6 +19,7 @@ const Sidebar = () => {
   const seekerLinks = [
     { label: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
     { label: 'My Applications', path: '/applications/my', icon: 'work_history' },
+    { label: 'Messages', path: '/chat', icon: 'forum' },
     { label: 'Profile', path: '/profile', icon: 'person' },
     { label: 'Settings', path: '/settings', icon: 'settings' },
   ];
@@ -31,6 +28,7 @@ const Sidebar = () => {
     { label: 'Admin Overview', path: '/admin/dashboard', icon: 'dashboard' },
     { label: 'Manage Applications', path: '/admin/applications', icon: 'task' },
     { label: 'Manage Jobs', path: '/admin/jobs', icon: 'work' },
+    { label: 'Messages', path: '/chat', icon: 'forum' },
     { label: 'Profile', path: '/profile', icon: 'person' },
     { label: 'Settings', path: '/settings', icon: 'settings' },
   ];

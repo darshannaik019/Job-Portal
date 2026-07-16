@@ -29,9 +29,10 @@ export const fetchMyApplications = createAsyncThunk(
 
 export const fetchAdminApplications = createAsyncThunk(
   'applications/fetchAdmin',
-  async (_, { rejectWithValue }) => {
+  async (sort, { rejectWithValue }) => {
     try {
-      const { data } = await api.get('/admin/applications');
+      const url = sort ? `/admin/applications?sort=${sort}` : '/admin/applications';
+      const { data } = await api.get(url);
       return data.applications;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to load candidate applications');
