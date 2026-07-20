@@ -11,6 +11,7 @@ import {
   clearMessages
 } from '../redux/slices/chatSlice.js';
 import useToast from '../hooks/useToast.js';
+import LoadingSkeleton from '../components/common/LoadingSkeleton.jsx';
 
 const ChatPage = () => {
   const dispatch = useDispatch();
@@ -24,9 +25,19 @@ const ChatPage = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [typedMessage, setTypedMessage] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
+  const [onlineUsersList, setOnlineUsersList] = useState([]);
+  const [typingUsers, setTypingUsers] = useState({});
+  const [isTyping, setIsTyping] = useState(false);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const selectedUserRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  // Sync selected user ref to keep socket listeners stable
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
 
   // Initialize socket connection
   useEffect(() => {
@@ -35,6 +46,9 @@ const ChatPage = () => {
       : 'http://localhost:5000';
       
     socketRef.current = io(socketUrl, {
+      auth: {
+        token: localStorage.getItem('token')
+      },
       withCredentials: true
     });
 
@@ -46,8 +60,9 @@ const ChatPage = () => {
 
     // Listen for incoming messages
     socketRef.current.on('message_received', (newMsg) => {
+      const activeUser = selectedUserRef.current;
       // Check if message belongs to active chat
-      if (selectedUser && newMsg.sender._id.toString() === selectedUser._id.toString()) {
+      if (activeUser && newMsg.sender._id.toString() === activeUser._id.toString()) {
         dispatch(addMessage(newMsg));
       } else {
         addToast(`New message from ${newMsg.sender.name}`, 'info');
@@ -63,6 +78,26 @@ const ChatPage = () => {
       dispatch(updateConversationsList({ ...newMsg, myId: user.id }));
     });
 
+    // Listen for presence & typing events
+    socketRef.current.on('online_users', (users) => {
+      setOnlineUsersList(users.map(id => id.toString()));
+    });
+
+    socketRef.current.on('user_online', (userId) => {
+      setOnlineUsersList((prev) => [...new Set([...prev, userId.toString()])]);
+    });
+
+    socketRef.current.on('user_offline', (userId) => {
+      setOnlineUsersList((prev) => prev.filter((id) => id !== userId.toString()));
+    });
+
+    socketRef.current.on('typing_indicator', (data) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [data.sender.toString()]: data.isTyping
+      }));
+    });
+
     // Fetch initial conversations list
     dispatch(fetchConversations());
 
@@ -72,7 +107,7 @@ const ChatPage = () => {
       }
       dispatch(clearMessages());
     };
-  }, [dispatch, user.id, selectedUser, addToast]);
+  }, [dispatch, user.id, addToast]);
 
   // Handle passed user state (e.g. Recruiter clicking "Chat" from applications list)
   useEffect(() => {
@@ -94,6 +129,25 @@ const ChatPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle typing input changes
+  const handleInputChange = (e) => {
+    setTypedMessage(e.target.value);
+    
+    if (!socketRef.current || !selectedUser) return;
+
+    if (!isTyping) {
+      setIsTyping(true);
+      socketRef.current.emit('typing', { recipient: selectedUser._id });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+    typingTimeoutRef.current = setTimeout(() => {
+      socketRef.current.emit('stop_typing', { recipient: selectedUser._id });
+      setIsTyping(false);
+    }, 1500);
+  };
+
   // Send message
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -105,6 +159,11 @@ const ChatPage = () => {
         recipient: selectedUser._id,
         content: typedMessage
       });
+      
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      socketRef.current.emit('stop_typing', { recipient: selectedUser._id });
+      setIsTyping(false);
+      
       setTypedMessage('');
     }
   };
@@ -138,7 +197,9 @@ const ChatPage = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto divide-y divide-outline-variant/5">
-              {conversations.length === 0 ? (
+              {loading ? (
+                <LoadingSkeleton type="chat" />
+              ) : conversations.length === 0 ? (
                 <div className="p-8 text-center text-on-surface-variant dark:text-on-tertiary-container text-body-sm">
                   <span className="material-symbols-outlined text-3xl mb-2 text-outline-variant">chat_bubble</span>
                   <p>No messages yet.</p>
@@ -154,11 +215,16 @@ const ChatPage = () => {
                         : ''
                     }`}
                   >
-                    <img
-                      src={conv.user.profilePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'}
-                      alt={conv.user.name}
-                      className="w-11 h-11 rounded-full object-cover border border-outline-variant/10"
-                    />
+                    <div className="relative flex-shrink-0">
+                      <img
+                        src={conv.user.profilePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'}
+                        alt={conv.user.name}
+                        className="w-11 h-11 rounded-full object-cover border border-outline-variant/10"
+                      />
+                      <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-surface dark:border-primary-container ${
+                        onlineUsersList.includes(conv.user._id.toString()) ? 'bg-emerald-500' : 'bg-slate-400'
+                      }`}></span>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-0.5">
                         <h4 className="font-sans text-body-sm font-bold text-primary dark:text-white truncate">{conv.user.name}</h4>
@@ -182,13 +248,27 @@ const ChatPage = () => {
               <>
                 {/* Active Chat Header */}
                 <div className="p-4 border-b border-outline-variant/10 bg-surface dark:bg-primary-container flex items-center gap-3 shadow-sm">
-                  <img
-                    src={selectedUser.profilePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'}
-                    alt={selectedUser.name}
-                    className="w-10 h-10 rounded-full object-cover border border-outline-variant/10"
-                  />
+                  <div className="relative">
+                    <img
+                      src={selectedUser.profilePhoto || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=128&q=80'}
+                      alt={selectedUser.name}
+                      className="w-10 h-10 rounded-full object-cover border border-outline-variant/10"
+                    />
+                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-surface dark:border-primary-container ${
+                      onlineUsersList.includes(selectedUser._id.toString()) ? 'bg-emerald-500' : 'bg-slate-400'
+                    }`}></span>
+                  </div>
                   <div>
-                    <h4 className="font-sans text-body-sm font-bold text-primary dark:text-white">{selectedUser.name}</h4>
+                    <h4 className="font-sans text-body-sm font-bold text-primary dark:text-white flex items-center gap-2">
+                      {selectedUser.name}
+                      <span className={`text-[10px] font-normal px-2 py-0.5 rounded-full ${
+                        onlineUsersList.includes(selectedUser._id.toString()) 
+                          ? 'bg-emerald-500/10 text-emerald-500' 
+                          : 'bg-slate-400/10 text-slate-500'
+                      }`}>
+                        {onlineUsersList.includes(selectedUser._id.toString()) ? 'online' : 'offline'}
+                      </span>
+                    </h4>
                     <p className="text-[11px] text-on-surface-variant dark:text-on-tertiary-container uppercase tracking-wider font-bold">
                       {selectedUser.role === 'admin' ? 'Recruiter' : 'Candidate'}
                     </p>
@@ -219,6 +299,21 @@ const ChatPage = () => {
                       </div>
                     );
                   })}
+                  
+                  {/* Typing Indicator */}
+                  {typingUsers[selectedUser._id.toString()] && (
+                    <div className="flex justify-start">
+                      <div className="bg-white dark:bg-primary-container text-on-surface dark:text-white px-4 py-3 rounded-2xl rounded-tl-none border border-outline-variant/10 shadow-sm flex items-center gap-2">
+                        <span className="text-[11px] text-on-surface-variant dark:text-on-tertiary-container italic">typing</span>
+                        <span className="flex gap-1 items-center h-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -228,7 +323,7 @@ const ChatPage = () => {
                     type="text"
                     placeholder="Type a message..."
                     value={typedMessage}
-                    onChange={(e) => setTypedMessage(e.target.value)}
+                    onChange={handleInputChange}
                     className="flex-1 bg-surface-container-low dark:bg-on-tertiary-fixed-variant border border-outline-variant/20 dark:border-transparent rounded-xl text-body-sm px-4 py-3 text-on-surface dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary dark:focus:ring-white transition-all"
                   />
                   <button

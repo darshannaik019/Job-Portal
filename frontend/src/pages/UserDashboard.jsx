@@ -1,17 +1,33 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { fetchMyApplications } from '../redux/slices/applicationSlice.js';
 import Sidebar from '../components/common/Sidebar.jsx';
 import LoadingSkeleton from '../components/common/LoadingSkeleton.jsx';
+import api from '../utils/api.js';
 
 const UserDashboard = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { applications, loading, error } = useSelector((state) => state.applications);
+  const [recommendations, setRecommendations] = useState([]);
+  const [recLoading, setRecLoading] = useState(false);
 
   useEffect(() => {
     dispatch(fetchMyApplications());
+    
+    const fetchRecommendations = async () => {
+      setRecLoading(true);
+      try {
+        const { data } = await api.get('/jobs/recommendations');
+        setRecommendations(data.jobs || []);
+      } catch (err) {
+        console.error('Failed to fetch recommendations:', err);
+      } finally {
+        setRecLoading(false);
+      }
+    };
+    fetchRecommendations();
   }, [dispatch]);
 
   // Derive stats
@@ -83,6 +99,90 @@ const UserDashboard = () => {
                 </div>
                 <h4 className="text-4xl font-black mt-2">0</h4>
               </div>
+            </div>
+
+            {/* AI Recommendations */}
+            <div className="glass-card rounded-2xl bg-white dark:bg-primary-container border border-outline-variant/10 shadow p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary text-2xl animate-pulse">insights</span>
+                  <h3 className="font-sans text-lg font-bold">Tailored AI Recommendations</h3>
+                </div>
+                <span className="text-[10px] md:text-xs text-on-surface-variant dark:text-on-tertiary-container bg-secondary/10 text-secondary px-3 py-1 rounded-full font-bold">
+                  Powered by Gemini AI matching
+                </span>
+              </div>
+
+              {recLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <LoadingSkeleton type="card" />
+                  <LoadingSkeleton type="card" />
+                  <LoadingSkeleton type="card" />
+                </div>
+              ) : recommendations.length === 0 ? (
+                <div className="text-center py-8">
+                  <span className="material-symbols-outlined text-4xl text-outline-variant">recommend</span>
+                  <p className="text-on-surface-variant dark:text-on-tertiary-container mt-2 text-body-sm">
+                    Upload your resume in Profile to receive personalized AI recommendations.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {recommendations.map((job) => (
+                    <div key={job._id} className="relative p-5 rounded-xl border border-outline-variant/15 hover:border-secondary/30 hover:shadow-md transition-all flex flex-col justify-between bg-surface-container-lowest dark:bg-primary-container/20 group">
+                      {/* Match Badge */}
+                      <span className={`absolute top-4 right-4 text-[10px] font-black px-2.5 py-1 rounded-full ${
+                        job.matchScore >= 80 
+                          ? 'bg-emerald-500/10 text-emerald-600' 
+                          : job.matchScore >= 60 
+                            ? 'bg-amber-500/10 text-amber-600' 
+                            : 'bg-slate-400/10 text-slate-600'
+                      }`}>
+                        {job.matchScore}% Match
+                      </span>
+                      
+                      <div className="space-y-3">
+                        <div className="pr-16">
+                          <h4 className="font-bold text-body-sm line-clamp-1 group-hover:text-secondary transition-colors">{job.title}</h4>
+                          <p className="text-xs text-on-surface-variant dark:text-on-tertiary-container">{job.company}</p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant dark:bg-on-tertiary-fixed-variant/40 dark:text-white font-semibold">
+                            {job.location}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant dark:bg-on-tertiary-fixed-variant/40 dark:text-white font-semibold">
+                            {job.jobType}
+                          </span>
+                        </div>
+
+                        {job.matchedSkills && job.matchedSkills.length > 0 && (
+                          <div className="pt-2">
+                            <p className="text-[10px] text-on-surface-variant dark:text-on-tertiary-container font-semibold uppercase tracking-wider mb-1">Matched Skills</p>
+                            <div className="flex flex-wrap gap-1">
+                              {job.matchedSkills.slice(0, 3).map((skill, idx) => (
+                                <span key={idx} className="text-[9px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-medium">
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-outline-variant/10 flex items-center justify-between">
+                        <span className="text-xs font-bold text-on-surface">
+                          ${(job.salaryMin/1000).toFixed(0)}k - ${(job.salaryMax/1000).toFixed(0)}k
+                        </span>
+                        <Link to={`/jobs/${job._id}`} className="text-xs text-secondary font-black hover:underline flex items-center gap-1">
+                          Apply Now
+                          <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Recent applications table */}

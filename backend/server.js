@@ -9,6 +9,7 @@ import connectDB from './config/db.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import logger from './utils/logger.js';
 
+import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import Message from './models/Message.js';
 
@@ -81,16 +82,43 @@ const io = new Server(server, {
   }
 });
 
+// Socket.io Authentication Middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    logger.warn('Socket connection attempt rejected: No token provided');
+    return next(new Error('Authentication error: Token required'));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    next();
+  } catch (err) {
+    logger.warn(`Socket connection attempt rejected: ${err.message}`);
+    return next(new Error('Authentication error: Invalid token'));
+  }
+});
+
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
-  logger.info(`Socket connected: ${socket.id}`);
+  logger.info(`Socket connected: ${socket.id} (User: ${socket.userId})`);
 
   socket.on('setup', (userId) => {
-    socket.join(userId);
-    onlineUsers.set(userId, socket.id);
+    if (socket.userId && userId !== socket.userId) {
+      logger.warn(`Security Warning: User ${socket.userId} attempted to setup socket as User ${userId}`);
+      return;
+    }
+    const targetUserId = socket.userId || userId;
+    socket.join(targetUserId);
+    onlineUsers.set(targetUserId, socket.id);
     socket.emit('connected');
-    logger.info(`User ${userId} registered socket`);
+    logger.info(`User ${targetUserId} registered socket`);
+    
+    // Broadcast user online status
+    io.emit('user_online', targetUserId);
+    // Send list of currently online users to client
+    socket.emit('online_users', Array.from(onlineUsers.keys()));
   });
 
   socket.on('join_chat', (room) => {
@@ -98,9 +126,28 @@ io.on('connection', (socket) => {
     logger.info(`User joined room: ${room}`);
   });
 
+  socket.on('typing', (data) => {
+    const { recipient } = data;
+    if (recipient) {
+      socket.in(recipient).emit('typing_indicator', { sender: socket.userId, isTyping: true });
+    }
+  });
+
+  socket.on('stop_typing', (data) => {
+    const { recipient } = data;
+    if (recipient) {
+      socket.in(recipient).emit('typing_indicator', { sender: socket.userId, isTyping: false });
+    }
+  });
+
   socket.on('new_message', async (messageData) => {
     const { sender, recipient, content } = messageData;
     if (!sender || !recipient || !content) return;
+    
+    if (socket.userId && sender !== socket.userId) {
+      logger.warn(`Security Warning: User ${socket.userId} attempted to send message as ${sender}`);
+      return;
+    }
 
     try {
       const message = await Message.create({
@@ -122,12 +169,17 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    let disconnectedUserId = null;
     for (let [userId, socketId] of onlineUsers.entries()) {
       if (socketId === socket.id) {
         onlineUsers.delete(userId);
+        disconnectedUserId = userId;
         logger.info(`User ${userId} disconnected socket`);
         break;
       }
+    }
+    if (disconnectedUserId) {
+      io.emit('user_offline', disconnectedUserId);
     }
   });
 });

@@ -1,5 +1,14 @@
 import express from 'express';
-import { getJobs, getJobById, createJob, updateJob, deleteJob } from '../controllers/jobController.js';
+import { 
+  getJobs, 
+  getJobById, 
+  createJob, 
+  updateJob, 
+  deleteJob, 
+  getJobRecommendations,
+  getCompanyList,
+  getSalaryStats
+} from '../controllers/jobController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/roleMiddleware.js';
 import { validateBody } from '../middleware/validationMiddleware.js';
@@ -7,6 +16,9 @@ import { jobSchema } from '../utils/validation.js';
 
 const router = express.Router();
 
+router.get('/companies', getCompanyList);
+router.get('/salaries', getSalaryStats);
+router.get('/recommendations', protect, getJobRecommendations);
 router.get('/', getJobs);
 router.get('/:id', getJobById);
 router.post('/', protect, authorize('admin'), validateBody(jobSchema), createJob);

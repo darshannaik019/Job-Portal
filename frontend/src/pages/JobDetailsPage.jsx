@@ -37,7 +37,7 @@ const JobDetailsPage = () => {
       <div className="bg-background dark:bg-primary-container text-on-surface dark:text-white min-h-screen">
         <Navbar />
         <div className="pt-28 max-w-container-max mx-auto px-margin-desktop">
-          <LoadingSkeleton />
+          <LoadingSkeleton type="detail" />
         </div>
       </div>
     );

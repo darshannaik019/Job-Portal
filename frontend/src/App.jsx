@@ -21,6 +21,9 @@ import AdminJobsPage from './pages/AdminJobsPage.jsx';
 import UserProfilePage from './pages/UserProfilePage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import ChatPage from './pages/ChatPage.jsx';
+import CompaniesPage from './pages/CompaniesPage.jsx';
+import SalariesPage from './pages/SalariesPage.jsx';
+import ResourcesPage from './pages/ResourcesPage.jsx';
 
 function App() {
   const dispatch = useDispatch();
@@ -43,6 +46,9 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/jobs" element={<BrowseJobs />} />
         <Route path="/jobs/:id" element={<JobDetailsPage />} />
+        <Route path="/companies" element={<CompaniesPage />} />
+        <Route path="/salaries" element={<SalariesPage />} />
+        <Route path="/resources" element={<ResourcesPage />} />
 
         {/* Seeker Private Routes */}
         <Route

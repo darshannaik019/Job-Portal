@@ -27,15 +27,15 @@ const Navbar = () => {
             <Link to="/jobs" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
               Find Jobs
             </Link>
-            <a href="#" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
+            <Link to="/companies" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
               Companies
-            </a>
-            <a href="#" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
+            </Link>
+            <Link to="/salaries" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
               Salaries
-            </a>
-            <a href="#" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
+            </Link>
+            <Link to="/resources" className="text-on-surface-variant hover:text-secondary dark:text-on-tertiary-container dark:hover:text-white transition-colors duration-200 font-medium text-body-sm">
               Resources
-            </a>
+            </Link>
           </div>
         </div>
         
@@ -100,12 +100,15 @@ const Navbar = () => {
           <Link to="/jobs" onClick={() => setMobileMenuOpen(false)} className="text-on-surface dark:text-white font-medium text-body-sm">
             Find Jobs
           </Link>
-          <a href="#" onClick={() => setMobileMenuOpen(false)} className="text-on-surface dark:text-white font-medium text-body-sm">
+          <Link to="/companies" onClick={() => setMobileMenuOpen(false)} className="text-on-surface dark:text-white font-medium text-body-sm">
             Companies
-          </a>
-          <a href="#" onClick={() => setMobileMenuOpen(false)} className="text-on-surface dark:text-white font-medium text-body-sm">
+          </Link>
+          <Link to="/salaries" onClick={() => setMobileMenuOpen(false)} className="text-on-surface dark:text-white font-medium text-body-sm">
             Salaries
-          </a>
+          </Link>
+          <Link to="/resources" onClick={() => setMobileMenuOpen(false)} className="text-on-surface dark:text-white font-medium text-body-sm">
+            Resources
+          </Link>
           {isAuthenticated && (
             <button 
               onClick={() => { setMobileMenuOpen(false); handleLogout(); }}

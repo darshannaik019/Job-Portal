@@ -129,3 +129,121 @@ You MUST respond in clean JSON format with exactly this structure:
     return fallbackScoreResume(resumeText, job);
   }
 };
+
+/**
+ * Fallback resume parser (extracts skills from common keywords)
+ */
+const fallbackParseResume = (resumeText) => {
+  if (!resumeText) return null;
+
+  const text = resumeText.toLowerCase();
+  const commonSkills = [
+    'javascript', 'typescript', 'react', 'node', 'express', 'mongodb', 'html', 'css', 
+    'python', 'java', 'c++', 'c#', 'sql', 'postgresql', 'docker', 'kubernetes', 'aws', 
+    'git', 'agile', 'scrum', 'project management', 'ui/ux', 'design', 'analytics', 'excel'
+  ];
+
+  const skills = [];
+  commonSkills.forEach(skill => {
+    const regex = new RegExp(`\\b${skill}\\b`, 'i');
+    if (regex.test(text)) {
+      skills.push(skill.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
+    }
+  });
+
+  return {
+    skills: skills.slice(0, 10),
+    education: [],
+    experience: []
+  };
+};
+
+/**
+ * Analyze candidate resume and return structured profile details using Gemini API or Fallback
+ */
+export const parseResumeWithAI = async (resumeText) => {
+  if (!resumeText) return null;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey || apiKey.includes('placeholder')) {
+    logger.info('Gemini API key not found. Using local fallback resume parser.');
+    return fallbackParseResume(resumeText);
+  }
+
+  try {
+    const prompt = `Analyze the candidate's resume text below and extract their key details into clean JSON format.
+    
+    Resume text:
+    ${resumeText}
+    
+    You MUST respond in clean JSON format with EXACTLY this structure:
+    {
+      "name": "string (candidate's name, optional)",
+      "phone": "string (candidate's phone, optional)",
+      "skills": ["string (array of skills, max 10)"],
+      "education": [
+        {
+          "degree": "string (degree name)",
+          "school": "string (school/university name)",
+          "startYear": "string (optional)",
+          "endYear": "string (optional)"
+        }
+      ],
+      "experience": [
+        {
+          "title": "string (job title)",
+          "company": "string (company name)",
+          "startDate": "string (optional)",
+          "endDate": "string (optional)",
+          "description": "string (optional)"
+        }
+      ]
+    }`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!resultText) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    const cleanedText = resultText
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
+
+    return JSON.parse(cleanedText);
+
+  } catch (error) {
+    logger.error(`AI resume parsing failed, falling back: ${error.message}`);
+    return fallbackParseResume(resumeText);
+  }
+};

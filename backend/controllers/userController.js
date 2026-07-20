@@ -4,6 +4,7 @@ const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
 import User from '../models/User.js';
 import { uploadToCloudinary } from '../services/cloudinaryService.js';
+import { parseResumeWithAI } from '../services/aiService.js';
 import logger from '../utils/logger.js';
 
 export const getProfile = async (req, res, next) => {
@@ -74,20 +75,47 @@ export const uploadResume = async (req, res, next) => {
       logger.error(`PDF parsing failed during resume upload: ${parseError.message}`);
     }
 
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { 
-        resume: uploadResult.secure_url,
-        resumeText: resumeText
-      },
-      { new: true }
-    ).select('-password');
+    // Call AI to extract details
+    let parsedProfile = null;
+    if (resumeText) {
+      parsedProfile = await parseResumeWithAI(resumeText);
+    }
+
+    // Fetch user and update profile fields if empty
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.resume = uploadResult.secure_url;
+    user.resumeText = resumeText;
+
+    if (parsedProfile) {
+      // Auto-populate skills if not already populated
+      if (parsedProfile.skills && parsedProfile.skills.length > 0 && (!user.skills || user.skills.length === 0)) {
+        user.skills = parsedProfile.skills;
+      }
+      // Auto-populate education if empty
+      if (parsedProfile.education && parsedProfile.education.length > 0 && (!user.education || user.education.length === 0)) {
+        user.education = parsedProfile.education;
+      }
+      // Auto-populate experience if empty
+      if (parsedProfile.experience && parsedProfile.experience.length > 0 && (!user.experience || user.experience.length === 0)) {
+        user.experience = parsedProfile.experience;
+      }
+    }
+
+    await user.save();
+    
+    // Convert Mongoose doc to plain object and remove password
+    const userResponse = user.toObject();
+    delete userResponse.password;
 
     res.status(200).json({
       success: true,
-      message: 'Resume uploaded successfully',
+      message: 'Resume uploaded and parsed successfully',
       resumeUrl: uploadResult.secure_url,
-      user,
+      user: userResponse,
     });
   } catch (error) {
     next(error);
